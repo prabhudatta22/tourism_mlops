@@ -1,0 +1,19 @@
+{
+  "best_params": {
+    "xgb__colsample_bytree": 0.7,
+    "xgb__learning_rate": 0.1,
+    "xgb__max_depth": 6,
+    "xgb__n_estimators": 200,
+    "xgb__subsample": 0.8
+  },
+  "train_accuracy": 0.9981,
+  "train_precision": 0.9904,
+  "train_recall": 1.0,
+  "train_f1": 0.9952,
+  "train_roc_auc": 1.0,
+  "test_accuracy": 0.9253,
+  "test_precision": 0.8322,
+  "test_recall": 0.7677,
+  "test_f1": 0.7987,
+  "test_roc_auc": 0.9429
+}
