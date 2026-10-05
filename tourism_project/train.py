@@ -97,6 +97,6 @@ with mlflow.start_run(run_name="xgb-gridsearch"):
     MODEL_DIR.mkdir(exist_ok=True)
     joblib.dump(best, MODEL_DIR / "best_model.joblib")
     (MODEL_DIR / "metrics.json").write_text(json.dumps(
-        {"best_params": search.best_params_, **{k: round(v, 4) for k, v in metrics.items()}}, indent=2))
+        {"trained_by_run": os.getenv("GITHUB_RUN_NUMBER", "local"), "best_params": search.best_params_, **{k: round(v, 4) for k, v in metrics.items()}}, indent=2))
     mlflow.log_artifact(str(MODEL_DIR / "best_model.joblib"), artifact_path="model")
     print("Saved best model to", MODEL_DIR / "best_model.joblib")
