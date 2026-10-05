@@ -1,0 +1,97 @@
+name: Tourism Package Prediction - MLOps Pipeline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tourism_project/data/tourism.csv"
+      - "tourism_project/*.py"
+      - "tourism_project/requirements.txt"
+      - ".github/workflows/pipeline.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write          # allows the pipeline to push the trained model to main
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  register-dataset:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: tourism_project/requirements.txt
+      - run: pip install -r tourism_project/requirements.txt
+      - name: Validate & register dataset
+        run: python tourism_project/data_register.py
+
+  data-prep:
+    needs: register-dataset
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: tourism_project/requirements.txt
+      - run: pip install -r tourism_project/requirements.txt
+      - name: Clean data and create train/test splits
+        run: python tourism_project/prep.py
+      - name: Upload splits for the training job
+        uses: actions/upload-artifact@v4
+        with:
+          name: train-test-splits
+          path: tourism_project/data/processed/
+          retention-days: 7
+
+  model-training:
+    needs: data-prep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: tourism_project/requirements.txt
+      - run: pip install -r tourism_project/requirements.txt
+      - name: Download splits artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: train-test-splits
+          path: splits/
+      - name: Tune, track (MLflow) and save best model
+        env:
+          ARTIFACT_DIR: splits
+          MLFLOW_TRACKING_URI: sqlite:///mlflow.db
+        run: python tourism_project/train.py
+      - name: Upload MLflow tracking store
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlflow-tracking
+          path: |
+            mlflow.db
+            mlruns/
+      - name: Upload trained model
+        uses: actions/upload-artifact@v4
+        with:
+          name: model
+          path: tourism_project/model/
+      - name: Commit and push the best model to main
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tourism_project/model/
+          if git diff --cached --quiet; then
+            echo "Model unchanged - nothing to commit"
+          else
+            git commit -m "ci: update trained model (run ${{ github.run_number }}) [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
